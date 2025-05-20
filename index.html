@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten in Nederland (Leaflet demo)</title>
+    <title>Kadastrale gemeenten via CORS-proxy</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Leaflet CSS van UNPKG (versie 1.9.4) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -26,8 +26,10 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        // URL van het remote GeoJSON bestand
-        const geoJsonUrl = 'https://overpass.huc.knaw.nl/?q=cmVsYXRpb24KICBbZ2ViaWVkc3R5cGU9ImthZGHEknJhbGUgxIxtZWVudGUiXTsKb3V0xKJlb207';
+        // Gebruik een CORS-proxy om de Overpass-server te bereiken
+        const proxy = "https://corsproxy.io/?";
+        const targetUrl = 'https://overpass.huc.knaw.nl/?q=cmVsYXRpb24KICBbZ2ViaWVkc3R5cGU9ImthZGHEknJhbGUgxIxtZWVudGUiXTsKb3V0xKJlb207';
+        const geoJsonUrl = proxy + encodeURIComponent(targetUrl);
 
         // Functie om GeoJSON te laden en toe te voegen aan de kaart
         async function loadGeoJSON(url) {
@@ -60,7 +62,7 @@
             }
         }
 
-        // Laad de GeoJSON-data
+        // Laad de GeoJSON-data via de proxy
         loadGeoJSON(geoJsonUrl);
     </script>
 </body>
