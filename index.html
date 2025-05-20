@@ -1,58 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="nl">
 <head>
-    <title>Kadastrale gemeenten in Nederland</title>
     <meta charset="utf-8" />
+    <title>Kadastrale gemeenten in Nederland (Leaflet demo)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://app.unpkg.com/leaflet@1.9.4/files/dist/leaflet.css" />
+    <!-- Leaflet CSS van UNPKG (versie 1.9.4) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #map { height: 100vh; width: 100%; }
+        html, body { height: 100%; margin: 0; }
+        #map { width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
     <div id="map"></div>
 
-    <script src="https://app.unpkg.com/leaflet@1.9.4/files/dist/leaflet.js"></script>
+    <!-- Leaflet JS van UNPKG (versie 1.9.4) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialiseer kaart met Nederland als centrum
+        // Initialiseer de kaart gecentreerd op Nederland
         const map = L.map('map').setView([52.1326, 5.2913], 8);
-        
-        // Voeg basiskaartlaag toe
+
+        // Voeg een OpenStreetMap tile layer toe
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        // Functie om GeoJSON data op te halen en weer te geven
+        // URL van het remote GeoJSON bestand
+        const geoJsonUrl = 'https://overpass.huc.knaw.nl/?q=cmVsYXRpb24KICBbZ2ViaWVkc3R5cGU9ImthZGHEknJhbGUgxIxtZWVudGUiXTsKb3V0xKJlb207';
+
+        // Functie om GeoJSON te laden en toe te voegen aan de kaart
         async function loadGeoJSON(url) {
             try {
                 const response = await fetch(url);
+                if (!response.ok) throw new Error('Network response was not ok');
                 const data = await response.json();
-                
-                // Maak GeoJSON laag met opmaak
-                const geoJsonLayer = L.geoJSON(data, {
+
+                // Voeg GeoJSON toe aan de kaart met eenvoudige styling
+                const layer = L.geoJSON(data, {
                     style: {
-                        color: "#ff0000",
+                        color: '#e31a1c',
                         weight: 2,
-                        opacity: 0.7,
                         fillOpacity: 0.1
                     },
                     onEachFeature: function(feature, layer) {
-                        if (feature.properties.name) {
+                        // Toon naam (indien aanwezig) in een popup
+                        if (feature.properties && feature.properties.name) {
                             layer.bindPopup(feature.properties.name);
                         }
                     }
                 }).addTo(map);
-                
-                // Pas kaartweergave aan aan data
-                map.fitBounds(geoJsonLayer.getBounds());
 
-            } catch (error) {
-                console.error('Fout bij laden GeoJSON:', error);
+                // Zoom automatisch naar de grenzen van de GeoJSON-laag
+                map.fitBounds(layer.getBounds());
+
+            } catch (err) {
+                alert('Fout bij laden van GeoJSON: ' + err);
+                console.error(err);
             }
         }
 
-        // Laad GeoJSON van Overpass API
-        const geoJsonUrl = 'https://overpass.huc.knaw.nl/?q=cmVsYXRpb24KICBbZ2ViaWVkc3R5cGU9ImthZGHEknJhbGUgxIxtZWVudGUiXTsKb3V0xKJlb207';
+        // Laad de GeoJSON-data
         loadGeoJSON(geoJsonUrl);
     </script>
 </body>
