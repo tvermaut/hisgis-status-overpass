@@ -96,6 +96,9 @@
             elements.forEach(el => {
                 if (el.type === "way" && el.geometry) {
                     wayMap[el.id] = el;
+                } else {
+                    console.log("geen geometry gevonden: ")
+                    console.log(el);
                 }
             });
 
