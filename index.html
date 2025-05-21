@@ -24,7 +24,7 @@
         }).addTo(map);
 
         // Overpass API URL met correcte URL-encoding
-        const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=relation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
+        const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
 
         // Laad GeoJSON
         async function loadData() {
