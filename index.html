@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten uit Overpass JSON (correcte multipolygonen)</title>
+    <title>Kadastrale gemeenten uit Overpass JSON (polygonen correct gereconstrueerd)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -17,7 +17,6 @@
         // Overpass API JSON (geen proxy)
         const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
 
-        // Leaflet kaart initialiseren
         const map = L.map('map').setView([52.1326, 5.2913], 8);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -96,7 +95,7 @@
             const wayMap = {};
             elements.forEach(el => {
                 if (el.type === "way" && el.geometry) {
-                    wayMap[wayKey(el.id)] = el;
+                    wayMap[el.id] = el;
                 }
             });
 
@@ -107,16 +106,15 @@
                     const outers = [];
                     const inners = [];
                     el.members.forEach(member => {
-                        if (member.type === "way" && wayMap[wayKey(member.ref)]) {
+                        if (member.type === "way" && wayMap[member.ref]) {
                             if (member.role === "outer") {
-                                outers.push(wayMap[wayKey(member.ref)]);
+                                outers.push(wayMap[member.ref]);
                             } else if (member.role === "inner") {
-                                inners.push(wayMap[wayKey(member.ref)]);
+                                inners.push(wayMap[member.ref]);
                             }
                         }
                     });
 
-                    // Alleen polygonen/multipolygonen met outers
                     if (outers.length === 0) return;
 
                     // Combineer outers en inners tot ringen
@@ -137,9 +135,8 @@
                             properties: el.tags || {}
                         });
                     } else {
-                        // MultiPolygon
+                        // MultiPolygon (holes worden niet automatisch gekoppeld)
                         const coords = outerRings.map(ring => [ring]);
-                        // Holes (inners) toevoegen aan dichtstbijzijnde outer (optioneel, hier niet geïmplementeerd)
                         features.push({
                             type: "Feature",
                             geometry: {
@@ -168,7 +165,7 @@
                 const geojson = overpassToGeoJSON(overpassJson);
 
                 if (geojson.features.length === 0) {
-                    alert('Geen polygonen gevonden in deze Overpass-data.');
+                    alert('Geen polygonen gevonden in laag.');
                     return;
                 }
 
