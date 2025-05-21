@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten uit Overpass JSON</title>
+    <title>Kadastrale gemeenten uit Overpass JSON (correcte multipolygonen)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -24,41 +24,127 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        // Functie om Overpass JSON om te zetten naar GeoJSON (alleen polygons/multipolygons)
-        function overpassToGeoJSON(overpassJson) {
-            const features = [];
-            if (!overpassJson.elements) return { type: "FeatureCollection", features: [] };
+        // Helper: maak een key van een way-id
+        function wayKey(id) { return 'w' + id; }
 
-            overpassJson.elements.forEach(el => {
-                if (el.type === "relation" && el.geometry) {
-                    // Overpass polygons/multipolygons komen als een of meer lijnen in geometry
-                    // We nemen alleen "outer" members
-                    const outers = (el.members || []).filter(m => m.role === "outer" && m.geometry);
+        // Helper: check of een ring gesloten is
+        function isClosed(coords) {
+            if (coords.length < 2) return false;
+            const first = coords[0], last = coords[coords.length - 1];
+            return first[0] === last[0] && first[1] === last[1];
+        }
+
+        // Helper: ring omdraaien
+        function reverseRing(ring) {
+            return [...ring].reverse();
+        }
+
+        // Combineer ways tot een ring (volgorde van members aanhouden)
+        function joinWays(ways) {
+            // Zet alle ways om naar coördinaatlijsten
+            let rings = ways.map(way => way.geometry.map(pt => [pt.lon, pt.lat]));
+            let result = [];
+
+            while (rings.length > 0) {
+                let ring = rings.shift();
+                let changed = true;
+                while (changed) {
+                    changed = false;
+                    for (let i = 0; i < rings.length; i++) {
+                        let candidate = rings[i];
+                        // Sluit aan op einde
+                        if (ring[ring.length - 1][0] === candidate[0][0] && ring[ring.length - 1][1] === candidate[0][1]) {
+                            ring = ring.concat(candidate.slice(1));
+                            rings.splice(i, 1);
+                            changed = true;
+                            break;
+                        }
+                        // Sluit aan op begin
+                        if (ring[0][0] === candidate[candidate.length - 1][0] && ring[0][1] === candidate[candidate.length - 1][1]) {
+                            ring = candidate.slice(0, -1).concat(ring);
+                            rings.splice(i, 1);
+                            changed = true;
+                            break;
+                        }
+                        // Omgekeerd
+                        if (ring[ring.length - 1][0] === candidate[candidate.length - 1][0] && ring[ring.length - 1][1] === candidate[candidate.length - 1][1]) {
+                            ring = ring.concat(reverseRing(candidate).slice(1));
+                            rings.splice(i, 1);
+                            changed = true;
+                            break;
+                        }
+                        if (ring[0][0] === candidate[0][0] && ring[0][1] === candidate[0][1]) {
+                            ring = reverseRing(candidate).slice(0, -1).concat(ring);
+                            rings.splice(i, 1);
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
+                // Sluit de ring als dat nog niet zo is
+                if (!isClosed(ring)) {
+                    ring.push(ring[0]);
+                }
+                result.push(ring);
+            }
+            return result;
+        }
+
+        // Zet Overpass JSON om naar GeoJSON (alleen relations, alleen polygonen/multipolygonen)
+        function overpassToGeoJSON(overpassJson) {
+            const elements = overpassJson.elements;
+            const wayMap = {};
+            elements.forEach(el => {
+                if (el.type === "way" && el.geometry) {
+                    wayMap[wayKey(el.id)] = el;
+                }
+            });
+
+            const features = [];
+            elements.forEach(el => {
+                if (el.type === "relation" && el.members) {
+                    // Verzamel outers en inners
+                    const outers = [];
+                    const inners = [];
+                    el.members.forEach(member => {
+                        if (member.type === "way" && wayMap[wayKey(member.ref)]) {
+                            if (member.role === "outer") {
+                                outers.push(wayMap[wayKey(member.ref)]);
+                            } else if (member.role === "inner") {
+                                inners.push(wayMap[wayKey(member.ref)]);
+                            }
+                        }
+                    });
+
+                    // Alleen polygonen/multipolygonen met outers
                     if (outers.length === 0) return;
 
-                    // Multipolygon: meerdere outers, Polygon: één outer
-                    let coordinates;
-                    if (outers.length === 1) {
-                        // Polygon
-                        coordinates = [outers[0].geometry.map(pt => [pt.lon, pt.lat])];
+                    // Combineer outers en inners tot ringen
+                    const outerRings = joinWays(outers);
+                    const innerRings = inners.length > 0 ? joinWays(inners) : [];
+
+                    // MultiPolygon of Polygon?
+                    if (outerRings.length === 1) {
+                        // Polygon (met eventueel holes)
+                        const coords = [outerRings[0]];
+                        innerRings.forEach(ring => coords.push(ring));
                         features.push({
                             type: "Feature",
                             geometry: {
                                 type: "Polygon",
-                                coordinates: coordinates
+                                coordinates: coords
                             },
                             properties: el.tags || {}
                         });
                     } else {
-                        // Multipolygon
-                        coordinates = outers.map(outer =>
-                            [outer.geometry.map(pt => [pt.lon, pt.lat])]
-                        );
+                        // MultiPolygon
+                        const coords = outerRings.map(ring => [ring]);
+                        // Holes (inners) toevoegen aan dichtstbijzijnde outer (optioneel, hier niet geïmplementeerd)
                         features.push({
                             type: "Feature",
                             geometry: {
                                 type: "MultiPolygon",
-                                coordinates: coordinates
+                                coordinates: coords
                             },
                             properties: el.tags || {}
                         });
