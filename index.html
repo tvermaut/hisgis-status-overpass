@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten zoeken en tonen (met tile fallback)</title>
+    <title>Kadastrale gemeenten zoeken en tonen (zonder zoomrestricties)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -53,19 +53,13 @@
         <button type="submit" id="searchBtn" disabled>Zoek</button>
     </form>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Voeg de TileLayer.Fallback plugin toe -->
-    <script src="https://unpkg.com/leaflet.tilelayer.fallback@1.0.4/dist/leaflet.tilelayer.fallback.js"></script>
     <script>
-        // HUC-tiles met fallback vanaf z=13
-        const hucTiles = L.tileLayer.fallback('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
-            minZoom: 0,
-            maxZoom: 19,
-            minNativeZoom: 13, // z=13 is het laagste niveau op de server
+        // HUC-tiles zonder zoomrestricties
+        const hucTiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
             attribution: '&copy; <a href="https://huc.knaw.nl/">HUC</a>'
         });
-        // OSM als alternatief (zonder fallback)
+        // OSM als alternatief
         const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         });
 
