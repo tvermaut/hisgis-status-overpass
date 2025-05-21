@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten via Overpass (met CORS-proxy)</title>
+    <title>Kadastrale gemeenten via Overpass (zonder proxy)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -28,10 +28,6 @@
 
         // Overpass API GeoJSON-URL
         const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
-
-        // Gebruik een openbare CORS-proxy
-        const proxy = "https://corsproxy.io/?";
-        const geoJsonUrl = proxy + encodeURIComponent(overpassUrl);
 
         // GeoJSON laden en toevoegen aan de kaart
         async function loadGeoJSON(url) {
@@ -64,8 +60,8 @@
             }
         }
 
-        // Laad de GeoJSON-data via de proxy
-        loadGeoJSON(geoJsonUrl);
+        // Laad de GeoJSON-data direct van Overpass
+        loadGeoJSON(overpassUrl);
     </script>
 </body>
 </html>
