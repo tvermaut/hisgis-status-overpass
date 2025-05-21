@@ -2,9 +2,8 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten via Overpass (zonder proxy)</title>
+    <title>Kadastrale gemeenten uit Overpass JSON</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         html, body { height: 100%; margin: 0; }
@@ -13,55 +12,102 @@
 </head>
 <body>
     <div id="map"></div>
-
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialiseer de kaart
-        const map = L.map('map').setView([52.1326, 5.2913], 8);
+        // Overpass API JSON (geen proxy)
+        const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
 
-        // Voeg een OpenStreetMap tile layer toe
+        // Leaflet kaart initialiseren
+        const map = L.map('map').setView([52.1326, 5.2913], 8);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
-        // Overpass API GeoJSON-URL
-        const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
+        // Functie om Overpass JSON om te zetten naar GeoJSON (alleen polygons/multipolygons)
+        function overpassToGeoJSON(overpassJson) {
+            const features = [];
+            if (!overpassJson.elements) return { type: "FeatureCollection", features: [] };
 
-        // GeoJSON laden en toevoegen aan de kaart
-        async function loadGeoJSON(url) {
+            overpassJson.elements.forEach(el => {
+                if (el.type === "relation" && el.geometry) {
+                    // Overpass polygons/multipolygons komen als een of meer lijnen in geometry
+                    // We nemen alleen "outer" members
+                    const outers = (el.members || []).filter(m => m.role === "outer" && m.geometry);
+                    if (outers.length === 0) return;
+
+                    // Multipolygon: meerdere outers, Polygon: één outer
+                    let coordinates;
+                    if (outers.length === 1) {
+                        // Polygon
+                        coordinates = [outers[0].geometry.map(pt => [pt.lon, pt.lat])];
+                        features.push({
+                            type: "Feature",
+                            geometry: {
+                                type: "Polygon",
+                                coordinates: coordinates
+                            },
+                            properties: el.tags || {}
+                        });
+                    } else {
+                        // Multipolygon
+                        coordinates = outers.map(outer =>
+                            [outer.geometry.map(pt => [pt.lon, pt.lat])]
+                        );
+                        features.push({
+                            type: "Feature",
+                            geometry: {
+                                type: "MultiPolygon",
+                                coordinates: coordinates
+                            },
+                            properties: el.tags || {}
+                        });
+                    }
+                }
+            });
+
+            return {
+                type: "FeatureCollection",
+                features: features
+            };
+        }
+
+        // Data ophalen en visualiseren
+        async function loadAndShow() {
             try {
-                const response = await fetch(url);
+                const response = await fetch(overpassUrl);
                 if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.json();
+                const overpassJson = await response.json();
 
-                // Voeg GeoJSON toe aan de kaart
-                const layer = L.geoJSON(data, {
+                const geojson = overpassToGeoJSON(overpassJson);
+
+                if (geojson.features.length === 0) {
+                    alert('Geen polygonen gevonden in deze Overpass-data.');
+                    return;
+                }
+
+                const layer = L.geoJSON(geojson, {
                     style: {
                         color: '#e31a1c',
                         weight: 2,
                         fillOpacity: 0.1
                     },
                     onEachFeature: function(feature, layer) {
-                        // Toon naam (indien aanwezig) in een popup
                         if (feature.properties && feature.properties.name) {
                             layer.bindPopup(feature.properties.name);
                         }
                     }
                 }).addTo(map);
 
-                // Zoom automatisch naar de grenzen van de GeoJSON-laag
                 map.fitBounds(layer.getBounds());
 
             } catch (err) {
-                alert('Fout bij laden van GeoJSON: ' + err);
+                alert('Fout bij laden of verwerken van Overpass-data: ' + err);
                 console.error(err);
             }
         }
 
-        // Laad de GeoJSON-data direct van Overpass
-        loadGeoJSON(overpassUrl);
+        loadAndShow();
     </script>
 </body>
 </html>
