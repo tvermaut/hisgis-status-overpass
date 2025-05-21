@@ -228,19 +228,20 @@ function metersPerPixel(lat, zoom) {
 function drawLabels() {
     svg.selectAll('g.gemeente-label').remove();
     if (!gemeenteLayer) return;
+    // Toon alleen labels bij zoomniveau 13 of hoger
+    if (map.getZoom() < 13) return;
 
     gemeenteLayer.eachLayer(function(layer) {
         if (!layer.feature || !layer.feature.geometry) return;
         const name = layer.feature.properties && layer.feature.properties.name;
         if (!name) return;
-
-        // Vind grootste polygon-ring
         let rings = [];
         if (layer.feature.geometry.type === "Polygon") {
             rings = [layer.feature.geometry.coordinates[0]];
         } else if (layer.feature.geometry.type === "MultiPolygon") {
             rings = layer.feature.geometry.coordinates.map(poly => poly[0]);
         }
+        // Centroid van grootste ring
         let biggest = rings[0];
         let maxLen = 0;
         for (let ring of rings) {
@@ -253,12 +254,9 @@ function drawLabels() {
                 biggest = ring;
             }
         }
-
-        // Centroid
         const centroid = polygonCentroid(biggest);
         const point = map.latLngToLayerPoint([centroid[1], centroid[0]]);
-
-        // Slimme regelafbreking (max 14 tekens per regel, maar niet midden in een woord)
+        // Slimme regelafbreking (max 14 tekens per regel)
         const breakLines = (txt, maxLen = 14) => {
             const words = txt.split(' ');
             let lines = [], line = '';
@@ -275,62 +273,22 @@ function drawLabels() {
         };
         const lines = breakLines(name, 14);
 
-        // Bepaal bbox van grootste ring in kaart-coördinaten
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (const c of biggest) {
-            const pt = map.latLngToLayerPoint([c[1], c[0]]);
-            if (pt.x < minX) minX = pt.x;
-            if (pt.x > maxX) maxX = pt.x;
-            if (pt.y < minY) minY = pt.y;
-            if (pt.y > maxY) maxY = pt.y;
-        }
-        const boxWidth = maxX - minX, boxHeight = maxY - minY;
-
-        // Zoek de grootste fontgrootte waarbij de tekst nog in de bbox past
-        let fontSizePx = 10, maxFont = 500;
-        const testSvg = svg.append('g').attr('visibility', 'hidden');
-        let fits = size => {
-            testSvg.selectAll('*').remove();
-            let maxLineWidth = 0;
-            lines.forEach((line, i) => {
-                const t = testSvg.append('text')
-                    .text(line)
-                    .attr('font-size', size)
-                    .attr('font-family', 'sans-serif')
-                    .attr('font-weight', 'bold');
-                const width = t.node().getBBox().width;
-                if (width > maxLineWidth) maxLineWidth = width;
-            });
-            const totalHeight = lines.length * size * 1.1;
-            return maxLineWidth <= boxWidth * 0.95 && totalHeight <= boxHeight * 0.95;
-        };
-        // Bisection search
-        let low = 5, high = maxFont;
-        while (high - low > 1) {
-            let mid = (low + high) / 2;
-            if (fits(mid)) low = mid;
-            else high = mid;
-        }
-        fontSizePx = low;
-        testSvg.remove();
-
-        // Teken label
+        // Teken label (vaste lettergrootte 10pt)
         const g = svg.append('g')
             .attr('class', 'gemeente-label')
             .attr('transform', `translate(${point.x},${point.y})`);
         lines.forEach((line, i) => {
             g.append('text')
                 .text(line)
-                .attr('y', i * fontSizePx * 1.1)
+                .attr('y', i * 10 * 1.1) // 10pt * 1.1 regelafstand
                 .attr('text-anchor', 'middle')
-                .attr('font-size', fontSizePx)
+                .attr('font-size', '10pt')
                 .attr('font-family', 'sans-serif')
                 .attr('font-weight', 'bold');
         });
     });
 }
 map.on('zoomend moveend', drawLabels);
-
 
 // --- Tabel met provincie-groepen ---
 function renderTable() {
