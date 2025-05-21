@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten uit Overpass JSON (polygonen correct gereconstrueerd)</title>
+    <title>Kadastrale gemeenten uit Overpass JSON (members direct gebruikt)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -14,7 +14,6 @@
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Overpass API JSON (geen proxy)
         const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
 
         const map = L.map('map').setView([52.1326, 5.2913], 8);
@@ -22,9 +21,6 @@
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
-
-        // Helper: maak een key van een way-id
-        function wayKey(id) { return 'w' + id; }
 
         // Helper: check of een ring gesloten is
         function isClosed(coords) {
@@ -38,12 +34,10 @@
             return [...ring].reverse();
         }
 
-        // Combineer ways tot een ring (volgorde van members aanhouden)
+        // Combineer (in volgorde) ways tot een ring
         function joinWays(ways) {
-            // Zet alle ways om naar coördinaatlijsten
             let rings = ways.map(way => way.geometry.map(pt => [pt.lon, pt.lat]));
             let result = [];
-
             while (rings.length > 0) {
                 let ring = rings.shift();
                 let changed = true;
@@ -89,42 +83,29 @@
             return result;
         }
 
-        // Zet Overpass JSON om naar GeoJSON (alleen relations, alleen polygonen/multipolygonen)
+        // Zet Overpass JSON om naar GeoJSON (members direct gebruikt)
         function overpassToGeoJSON(overpassJson) {
-            const elements = overpassJson.elements;
-            const wayMap = {};
-            elements.forEach(el => {
-                if (el.type === "way" && el.geometry) {
-                    wayMap[el.id] = el;
-                } else {
-                    console.log("geen geometry gevonden: ")
-                    console.log(el);
-                }
-            });
-
             const features = [];
-            elements.forEach(el => {
+            overpassJson.elements.forEach(el => {
                 if (el.type === "relation" && el.members) {
-                    // Verzamel outers en inners
+                    // Verzamel outers en inners uit de members (members bevatten zelf geometry!)
                     const outers = [];
                     const inners = [];
                     el.members.forEach(member => {
-                        if (member.type === "way" && wayMap[member.ref]) {
+                        if (member.type === "way" && member.geometry) {
                             if (member.role === "outer") {
-                                outers.push(wayMap[member.ref]);
+                                outers.push(member);
                             } else if (member.role === "inner") {
-                                inners.push(wayMap[member.ref]);
+                                inners.push(member);
                             }
                         }
                     });
-
                     if (outers.length === 0) return;
 
                     // Combineer outers en inners tot ringen
                     const outerRings = joinWays(outers);
                     const innerRings = inners.length > 0 ? joinWays(inners) : [];
 
-                    // MultiPolygon of Polygon?
                     if (outerRings.length === 1) {
                         // Polygon (met eventueel holes)
                         const coords = [outerRings[0]];
