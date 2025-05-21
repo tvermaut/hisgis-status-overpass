@@ -9,9 +9,22 @@ const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
 const map = L.map('map', {
     center: [52.1326, 5.2913],
     zoom: 8,
-    zoomSnap: 0.5, // laat halve zoomstappen toe
-    zoomDelta: 0.5,
-    layers: [hucTiles]
+    zoomSnap: 0,
+    zoomDelta: 1,
+    wheelPxPerZoomLevel: 60
+});
+
+let zoomTimeout = null;
+
+map.on('wheel', () => {
+    if (zoomTimeout) clearTimeout(zoomTimeout);
+    zoomTimeout = setTimeout(() => {
+        const zoom = map.getZoom();
+        const roundedZoom = Math.round(zoom);
+        if (zoom !== roundedZoom) {
+            map.setZoom(roundedZoom);
+        }
+    }, 200);
 });
 
 const baseMaps = {
