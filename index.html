@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten uit Overpass JSON (members direct gebruikt)</title>
+    <title>Kadastrale gemeenten uit Overpass JSON (met tile-wisselaar)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -14,13 +14,32 @@
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
-
-        const map = L.map('map').setView([52.1326, 5.2913], 8);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Tile layers
+        const hucTiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://huc.knaw.nl/">HUC</a>'
+        });
+        const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        }).addTo(map);
+        });
+
+        // Init map with HUC as default
+        const map = L.map('map', {
+            center: [52.1326, 5.2913],
+            zoom: 8,
+            layers: [hucTiles]
+        });
+
+        // Layer control
+        const baseMaps = {
+            "HUC Tiles": hucTiles,
+            "OpenStreetMap": osmTiles
+        };
+        L.control.layers(baseMaps).addTo(map);
+
+        // Overpass API JSON (geen proxy)
+        const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
 
         // Helper: check of een ring gesloten is
         function isClosed(coords) {
