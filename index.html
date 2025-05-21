@@ -2,9 +2,8 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten via CORS-proxy</title>
+    <title>Kadastrale gemeenten (directe Overpass API)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Leaflet CSS van UNPKG (versie 1.9.4) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         html, body { height: 100%; margin: 0; }
@@ -14,56 +13,42 @@
 <body>
     <div id="map"></div>
 
-    <!-- Leaflet JS van UNPKG (versie 1.9.4) -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialiseer de kaart gecentreerd op Nederland
+        // Initialiseer kaart
         const map = L.map('map').setView([52.1326, 5.2913], 8);
-
-        // Voeg een OpenStreetMap tile layer toe
+        
+        // Basislaag
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // Gebruik een CORS-proxy om de Overpass-server te bereiken
-        const proxy = "https://corsproxy.io/?";
-        const targetUrl = 'https://overpass.huc.knaw.nl/?q=cmVsYXRpb24KICBbZ2ViaWVkc3R5cGU9ImthZGHEknJhbGUgxIxtZWVudGUiXTsKb3V0xKJlb207';
-        const geoJsonUrl = proxy + encodeURIComponent(targetUrl);
+        // Overpass API URL met correcte URL-encoding
+        const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=relation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
 
-        // Functie om GeoJSON te laden en toe te voegen aan de kaart
-        async function loadGeoJSON(url) {
+        // Laad GeoJSON
+        async function loadData() {
             try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.json();
-
-                // Voeg GeoJSON toe aan de kaart met eenvoudige styling
-                const layer = L.geoJSON(data, {
-                    style: {
-                        color: '#e31a1c',
-                        weight: 2,
-                        fillOpacity: 0.1
-                    },
-                    onEachFeature: function(feature, layer) {
-                        // Toon naam (indien aanwezig) in een popup
-                        if (feature.properties && feature.properties.name) {
-                            layer.bindPopup(feature.properties.name);
+                const response = await fetch(overpassUrl);
+                if (!response.ok) throw new Error(`HTTP-fout: ${response.status}`);
+                const geojson = await response.json();
+                
+                L.geoJSON(geojson, {
+                    style: { color: '#dd0022', weight: 2 },
+                    onEachFeature: (feature, layer) => {
+                        if (feature.properties.name) {
+                            layer.bindPopup(`<b>${feature.properties.name}</b>`);
                         }
                     }
-                }).addTo(map);
-
-                // Zoom automatisch naar de grenzen van de GeoJSON-laag
-                map.fitBounds(layer.getBounds());
-
+                }).addTo(map).once('data:loaded', e => map.fitBounds(e.target.getBounds()));
+                
             } catch (err) {
-                alert('Fout bij laden van GeoJSON: ' + err);
-                console.error(err);
+                console.error('Fout:', err);
+                alert('Data laden mislukt - zie console voor details');
             }
         }
 
-        // Laad de GeoJSON-data via de proxy
-        loadGeoJSON(geoJsonUrl);
+        loadData();
     </script>
 </body>
 </html>
