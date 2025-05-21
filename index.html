@@ -2,29 +2,74 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8" />
-    <title>Kadastrale gemeenten uit Overpass JSON (met tile-wisselaar)</title>
+    <title>Kadastrale gemeenten zoeken en tonen (met tile fallback)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         html, body { height: 100%; margin: 0; }
         #map { width: 100vw; height: 100vh; }
+        .search-box {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            padding: 6px 10px 6px 10px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-family: sans-serif;
+        }
+        .search-box input[type="text"] {
+            padding: 4px 8px;
+            font-size: 1em;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+        }
+        .search-box button {
+            padding: 4px 10px;
+            font-size: 1em;
+            border: none;
+            border-radius: 4px;
+            background: #e31a1c;
+            color: #fff;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+        .search-box button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .search-box label {
+            margin-right: 8px;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <form class="search-box" id="searchForm" autocomplete="off">
+        <label for="searchInput">Gemeente:</label>
+        <input type="text" id="searchInput" placeholder="Typ een gemeentenaam..." />
+        <button type="submit" id="searchBtn" disabled>Zoek</button>
+    </form>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Voeg de TileLayer.Fallback plugin toe -->
+    <script src="https://unpkg.com/leaflet.tilelayer.fallback@1.0.4/dist/leaflet.tilelayer.fallback.js"></script>
     <script>
-        // Tile layers
-        const hucTiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
+        // HUC-tiles met fallback vanaf z=13
+        const hucTiles = L.tileLayer.fallback('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
+            minZoom: 0,
             maxZoom: 19,
+            minNativeZoom: 13, // z=13 is het laagste niveau op de server
             attribution: '&copy; <a href="https://huc.knaw.nl/">HUC</a>'
         });
+        // OSM als alternatief (zonder fallback)
         const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         });
 
-        // Init map with HUC as default
+        // Init map met HUC als standaard
         const map = L.map('map', {
             center: [52.1326, 5.2913],
             zoom: 8,
@@ -135,7 +180,8 @@
                                 type: "Polygon",
                                 coordinates: coords
                             },
-                            properties: el.tags || {}
+                            properties: el.tags || {},
+                            id: el.id
                         });
                     } else {
                         // MultiPolygon (holes worden niet automatisch gekoppeld)
@@ -146,7 +192,8 @@
                                 type: "MultiPolygon",
                                 coordinates: coords
                             },
-                            properties: el.tags || {}
+                            properties: el.tags || {},
+                            id: el.id
                         });
                     }
                 }
@@ -157,6 +204,9 @@
                 features: features
             };
         }
+
+        let gemeenteLayer = null;
+        let featuresByName = {};
 
         // Data ophalen en visualiseren
         async function loadAndShow() {
@@ -172,7 +222,7 @@
                     return;
                 }
 
-                const layer = L.geoJSON(geojson, {
+                gemeenteLayer = L.geoJSON(geojson, {
                     style: {
                         color: '#e31a1c',
                         weight: 2,
@@ -185,7 +235,18 @@
                     }
                 }).addTo(map);
 
-                map.fitBounds(layer.getBounds());
+                // Indexeren op naam (case-insensitive)
+                featuresByName = {};
+                geojson.features.forEach(f => {
+                    if (f.properties && f.properties.name) {
+                        featuresByName[f.properties.name.toLowerCase()] = f;
+                    }
+                });
+
+                // Enable search button
+                document.getElementById('searchBtn').disabled = false;
+
+                map.fitBounds(gemeenteLayer.getBounds());
 
             } catch (err) {
                 alert('Fout bij laden of verwerken van Overpass-data: ' + err);
@@ -194,6 +255,34 @@
         }
 
         loadAndShow();
+
+        // Zoekfunctionaliteit
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const input = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!input) return;
+            if (!featuresByName[input]) {
+                alert('Gemeente niet gevonden: ' + input);
+                return;
+            }
+            // Vind de laag in de gemeenteLayer
+            gemeenteLayer.eachLayer(function(layer) {
+                if (
+                    layer.feature &&
+                    layer.feature.properties &&
+                    layer.feature.properties.name &&
+                    layer.feature.properties.name.toLowerCase() === input
+                ) {
+                    map.fitBounds(layer.getBounds(), {maxZoom: 13});
+                    layer.openPopup();
+                }
+            });
+        });
+
+        // Optioneel: Enter activeer knop alleen als er tekst is
+        document.getElementById('searchInput').addEventListener('input', function() {
+            document.getElementById('searchBtn').disabled = !this.value.trim();
+        });
     </script>
 </body>
 </html>
