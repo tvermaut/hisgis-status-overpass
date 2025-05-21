@@ -1,7 +1,8 @@
 // HUC-tiles zonder zoomrestricties
-const hucTiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
-    attribution: '&copy; <a href="https://huc.knaw.nl/">HUC</a>',
+const minuutplantiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
+    attribution: '<a href="https://hisgis.nl/">HisGIS</a>',
     maxZoom: 22,         // tot maximaal 22 inzoomen
+    minZoom: 11,
     maxNativeZoom: 22,   // alleen z=13 is echt aanwezig, lager/hoger wordt 
     minNativeZoom: 13
 });
@@ -16,8 +17,15 @@ const map = L.map('map', {
     zoomDelta: 1,
     wheelPxPerZoomLevel: 30,
     minZoom: 6,
-    maxZoom: 22
+    maxZoom: 22,
+    layers: [minuutplantiles]
 });
+
+// --- Provincie filter ---
+const allowedProvinces = [
+  "Drenthe", "Friesland", "Gelderland", "Groningen", "Limburg",
+  "Noord-Brabant", "Noord-Holland", "Overijssel", "Utrecht", "Zeeland", "Zuid-Holland"
+];
 
 let zoomTimeout = null;
 
@@ -31,12 +39,6 @@ map.on('wheel', () => {
         }
     }, 200);
 });
-
-const baseMaps = {
-    "HUC Tiles": hucTiles,
-    "OpenStreetMap": osmTiles
-};
-L.control.layers(baseMaps).addTo(map);
 
 const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3Brelation%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%5B%22kad%3Aprovincie%22~%22%5E%28Drenthe%7CFriesland%7CGelderland%7CGroningen%7CLimburg%7CNoord-Brabant%7CNoord-Holland%7COverijssel%7CUtrecht%7CZeeland%7CZuid-Holland%29%24%22%5D%3Bout%20geom%3B';
 
@@ -93,11 +95,6 @@ function joinWays(ways) {
     return result;
 }
 
-const allowedProvinces = [
-  "Drenthe", "Friesland", "Gelderland", "Groningen", "Limburg",
-  "Noord-Brabant", "Noord-Holland", "Overijssel", "Utrecht", "Zeeland", "Zuid-Holland"
-];
-
 function overpassToGeoJSON(overpassJson) {
     const features = [];
     overpassJson.elements.forEach(el => {
@@ -147,8 +144,7 @@ function overpassToGeoJSON(overpassJson) {
         features: features
     };
 }
-
-// --- Laag en zoeken ---
+// --- Vectorlaag (gemeenten) ---
 let gemeenteLayer = null;
 let featuresByName = {};
 let featuresById = {};
@@ -164,6 +160,9 @@ async function loadAndShow() {
             alert('Geen polygonen gevonden in laag.');
             return;
         }
+        if (gemeenteLayer) {
+            map.removeLayer(gemeenteLayer);
+        }
         gemeenteLayer = L.geoJSON(geojson, {
             style: {
                 color: '#e31a1c',
@@ -175,7 +174,7 @@ async function loadAndShow() {
                     layer.bindPopup(feature.properties.name);
                 }
             }
-        }).addTo(map);
+        });
         featuresByName = {};
         featuresById = {};
         featuresByProv = {};
@@ -189,7 +188,7 @@ async function loadAndShow() {
             featuresByProv[prov].push(f);
         });
         document.getElementById('searchBtn').disabled = false;
-        map.fitBounds(gemeenteLayer.getBounds());
+        map.addLayer(gemeenteLayer); // standaard aan
         renderTable();
         drawLabels();
     } catch (err) {
@@ -199,6 +198,30 @@ async function loadAndShow() {
 }
 loadAndShow();
 
+// --- Laagmenu met custom namen en overlay toggle ---
+const baseMaps = {
+    "minuutplans 1832": minuutplansTiles,
+    "OpenStreetMap": osmTiles
+};
+const overlayMaps = {
+    "Gemeentegrenzen": {
+        // Leaflet 1.9.3+ ondersteunt object met 'layer' property
+        layer: null // placeholder, wordt later gezet
+    }
+};
+const layersControl = L.control.layers(baseMaps, {}, {collapsed: false}).addTo(map);
+
+// Voeg overlay toe als gemeenteLayer geladen is
+function updateOverlayControl() {
+    if (gemeenteLayer) {
+        // Verwijder bestaande overlay indien nodig
+        layersControl.removeLayer(gemeenteLayer);
+        // Voeg opnieuw toe
+        layersControl.addOverlay(gemeenteLayer, "Gemeentegrenzen");
+    }
+}
+
+// --- Zoekfunctionaliteit en tabel ---
 document.getElementById('searchForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const input = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -233,7 +256,7 @@ function polygonCentroid(coords) {
     y = y / (6 * area);
     return [x, y];
 }
-function breakLines(name, maxLen = 12) {
+function breakLines(name, maxLen = 14) {
     const words = name.split(' ');
     let lines = [], line = '';
     for (let w of words) {
@@ -247,16 +270,10 @@ function breakLines(name, maxLen = 12) {
     if (line) lines.push(line.trim());
     return lines;
 }
-function metersPerPixel(lat, zoom) {
-    const earthCircumference = 40075016.686;
-    return earthCircumference * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom + 8);
-}
 function drawLabels() {
     svg.selectAll('g.gemeente-label').remove();
     if (!gemeenteLayer) return;
-    // Toon alleen labels bij zoomniveau 13 of hoger
     if (map.getZoom() < 13) return;
-
     gemeenteLayer.eachLayer(function(layer) {
         if (!layer.feature || !layer.feature.geometry) return;
         const name = layer.feature.properties && layer.feature.properties.name;
@@ -267,7 +284,6 @@ function drawLabels() {
         } else if (layer.feature.geometry.type === "MultiPolygon") {
             rings = layer.feature.geometry.coordinates.map(poly => poly[0]);
         }
-        // Centroid van grootste ring
         let biggest = rings[0];
         let maxLen = 0;
         for (let ring of rings) {
@@ -282,31 +298,15 @@ function drawLabels() {
         }
         const centroid = polygonCentroid(biggest);
         const point = map.latLngToLayerPoint([centroid[1], centroid[0]]);
-        // Slimme regelafbreking (max 14 tekens per regel)
-        const breakLines = (txt, maxLen = 14) => {
-            const words = txt.split(' ');
-            let lines = [], line = '';
-            for (let w of words) {
-                if ((line + ' ' + w).trim().length > maxLen && line.length > 0) {
-                    lines.push(line.trim());
-                    line = w;
-                } else {
-                    line += ' ' + w;
-                }
-            }
-            if (line) lines.push(line.trim());
-            return lines;
-        };
         const lines = breakLines(name, 14);
 
-        // Teken label (vaste lettergrootte 10pt)
         const g = svg.append('g')
             .attr('class', 'gemeente-label')
             .attr('transform', `translate(${point.x},${point.y})`);
         lines.forEach((line, i) => {
             g.append('text')
                 .text(line)
-                .attr('y', i * 10 * 1.1) // 10pt * 1.1 regelafstand
+                .attr('y', i * 10 * 1.1)
                 .attr('text-anchor', 'middle')
                 .attr('font-size', '10pt')
                 .attr('font-family', 'sans-serif')
@@ -348,6 +348,7 @@ function renderTable() {
         provDiv.appendChild(table);
         tableDiv.appendChild(provDiv);
     });
+    updateOverlayControl();
 }
 
 // --- Pan/zoom naar gemeente ---
@@ -361,7 +362,7 @@ function panToFeature(feature) {
     });
 }
 
-// URL bijwerken met zoom en center
+// --- URL live bijwerken met zoom en center ---
 function updateUrlFromMap() {
     const center = map.getCenter();
     const zoom = map.getZoom();
@@ -371,7 +372,7 @@ function updateUrlFromMap() {
 }
 map.on('moveend zoomend', updateUrlFromMap);
 
-// Bij laden: center en zoom uit URL (indien aanwezig)
+// --- Bij laden: center en zoom uit URL (indien aanwezig) ---
 window.addEventListener('DOMContentLoaded', () => {
     const hash = window.location.hash;
     if (hash && /^#([\d.]+)\/([\d\-.]+)\/([\d\-.]+)$/.test(hash)) {
