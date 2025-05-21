@@ -1,6 +1,9 @@
 // HUC-tiles zonder zoomrestricties
 const hucTiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
-    attribution: '&copy; <a href="https://huc.knaw.nl/">HUC</a>'
+    attribution: '&copy; <a href="https://huc.knaw.nl/">HUC</a>',
+    minZoom: 11,         // optioneel, afhankelijk van je wens
+    maxZoom: 22,         // tot maximaal 22 inzoomen
+    maxNativeZoom: 13    // alleen z=13 is echt aanwezig, lager/hoger wordt 
 });
 const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -9,9 +12,11 @@ const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
 const map = L.map('map', {
     center: [52.1326, 5.2913],
     zoom: 8,
-    zoomSnap: 1,
-    zoomDelta: 1,
-    wheelPxPerZoomLevel: 60
+    zoomSnap: 0.5,
+    zoomDelta: 0.5,
+    wheelPxPerZoomLevel: 60,
+    minZoom: 6,
+    maxZoom: 22
 });
 
 let zoomTimeout = null;
