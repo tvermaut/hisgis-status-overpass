@@ -2,7 +2,8 @@
 const hucTiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
     attribution: '&copy; <a href="https://huc.knaw.nl/">HUC</a>',
     maxZoom: 22,         // tot maximaal 22 inzoomen
-    maxNativeZoom: 13    // alleen z=13 is echt aanwezig, lager/hoger wordt 
+    maxNativeZoom: 22,   // alleen z=13 is echt aanwezig, lager/hoger wordt 
+    minNativeZoom: 13
 });
 const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
