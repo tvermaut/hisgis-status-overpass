@@ -9,6 +9,8 @@ const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
 const map = L.map('map', {
     center: [52.1326, 5.2913],
     zoom: 8,
+    zoomSnap: 0.5, // laat halve zoomstappen toe
+    zoomDelta: 0.5,
     layers: [hucTiles]
 });
 
@@ -334,3 +336,22 @@ function panToFeature(feature) {
         }
     });
 }
+
+// URL bijwerken met zoom en center
+function updateUrlFromMap() {
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    const lat = center.lat.toFixed(5);
+    const lng = center.lng.toFixed(5);
+    window.history.replaceState(null, '', `#${zoom}/${lat}/${lng}`);
+}
+map.on('moveend zoomend', updateUrlFromMap);
+
+// Bij laden: center en zoom uit URL (indien aanwezig)
+window.addEventListener('DOMContentLoaded', () => {
+    const hash = window.location.hash;
+    if (hash && /^#([\d.]+)\/([\d\-.]+)\/([\d\-.]+)$/.test(hash)) {
+        const [, zoom, lat, lng] = hash.match(/^#([\d.]+)\/([\d\-.]+)\/([\d\-.]+)$/);
+        map.setView([parseFloat(lat), parseFloat(lng)], parseFloat(zoom));
+    }
+});

@@ -96,22 +96,17 @@ html, body { height: 100%; margin: 0; }
     fill: #222;
 }
 .gemeente-cell {
-    padding: 8px 16px;
+    padding: 2px 12px 2px 24px; /* minder verticale ruimte */
     border-bottom: 1px solid #f0f0f0;
     font-size: 1em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-indent: 1em; /* inspringen met ongeveer één en-space */
+    text-indent: 1em;
+    line-height: 1.05; /* dichter op elkaar */
 }
 .province-header {
-    background: #f0f0f8;
-    font-weight: bold;
-    font-size: 1.1em;
-    padding: 10px 16px 6px 16px;
-    border-bottom: 1px solid #e0e0e0;
-    letter-spacing: 0.02em;
-    text-indent: 0;
+    padding: 4px 12px 2px 12px;
 }
 .gemeente-label text {
     pointer-events: none;
