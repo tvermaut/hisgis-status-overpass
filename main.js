@@ -37,7 +37,7 @@ const baseMaps = {
 };
 L.control.layers(baseMaps).addTo(map);
 
-const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3B%0Arelation%0A%20%20%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%3B%0Aout%20geom%3B';
+const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3Brelation%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%5B%22kad%3Aprovincie%22~%22%5E%28Drenthe%7CFriesland%7CGelderland%7CGroningen%7CLimburg%7CNoord-Brabant%7CNoord-Holland%7COverijssel%7CUtrecht%7CZeeland%7CZuid-Holland%29%24%22%5D%3Bout%20geom%3B';
 
 // --- GeoJSON conversie helpers ---
 function isClosed(coords) {
@@ -91,10 +91,16 @@ function joinWays(ways) {
     }
     return result;
 }
+
+const allowedProvinces = [
+  "Drenthe", "Friesland", "Gelderland", "Groningen", "Limburg",
+  "Noord-Brabant", "Noord-Holland", "Overijssel", "Utrecht", "Zeeland", "Zuid-Holland"
+];
+
 function overpassToGeoJSON(overpassJson) {
     const features = [];
     overpassJson.elements.forEach(el => {
-        if (el.type === "relation" && el.members) {
+        if (el.type === "relation" && el.members && el.tags && allowedProvinces.includes(el.tags["kad:provincie"])) {
             const outers = [];
             const inners = [];
             el.members.forEach(member => {
