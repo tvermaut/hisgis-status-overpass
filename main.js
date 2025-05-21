@@ -9,7 +9,7 @@ const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
 const map = L.map('map', {
     center: [52.1326, 5.2913],
     zoom: 8,
-    zoomSnap: 0,
+    zoomSnap: 1,
     zoomDelta: 1,
     wheelPxPerZoomLevel: 60
 });
