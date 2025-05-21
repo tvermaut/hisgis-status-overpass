@@ -1,5 +1,5 @@
-// HUC-tiles zonder zoomrestricties
-const minuutplantiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
+// --- Tegel-lagen ---
+const minuutplansTiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}', {
     attribution: '<a href="https://hisgis.nl/">HisGIS</a>',
     maxZoom: 22,         // tot maximaal 22 inzoomen
     minZoom: 11,
@@ -7,18 +7,19 @@ const minuutplantiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}'
     minNativeZoom: 13
 });
 const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    attribution: '&copy; OpenStreetMap'
 });
 
+// --- Map met minuutplans als standaard ---
 const map = L.map('map', {
     center: [52.1326, 5.2913],
     zoom: 8,
-    zoomSnap: 1,
-    zoomDelta: 1,
-    wheelPxPerZoomLevel: 30,
     minZoom: 6,
     maxZoom: 22,
-    layers: [minuutplantiles]
+    zoomSnap: 1,
+    zoomDelta: 1,
+    wheelPxPerZoomLevel: 60,
+    layers: [minuutplansTiles] // standaard deze tegel-laag
 });
 
 // --- Provincie filter ---
@@ -27,20 +28,15 @@ const allowedProvinces = [
   "Noord-Brabant", "Noord-Holland", "Overijssel", "Utrecht", "Zeeland", "Zuid-Holland"
 ];
 
-let zoomTimeout = null;
-
-map.on('wheel', () => {
-    if (zoomTimeout) clearTimeout(zoomTimeout);
-    zoomTimeout = setTimeout(() => {
-        const zoom = map.getZoom();
-        const roundedZoom = Math.round(zoom);
-        if (zoom !== roundedZoom) {
-            map.setZoom(roundedZoom);
-        }
-    }, 200);
-});
-
-const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=%5Bout%3Ajson%5D%3Brelation%5Bgebiedstype%3D%22kadastrale%20gemeente%22%5D%5B%22kad%3Aprovincie%22~%22%5E%28Drenthe%7CFriesland%7CGelderland%7CGroningen%7CLimburg%7CNoord-Brabant%7CNoord-Holland%7COverijssel%7CUtrecht%7CZeeland%7CZuid-Holland%29%24%22%5D%3Bout%20geom%3B';
+// --- Overpass-query: filter direct op kad:provincie ---
+const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=' +
+    encodeURIComponent(
+        `[out:json][timeout:60];
+        relation
+          [gebiedstype="kadastrale gemeente"]
+          ["kad:provincie"~"^(Drenthe|Friesland|Gelderland|Groningen|Limburg|Noord-Brabant|Noord-Holland|Overijssel|Utrecht|Zeeland|Zuid-Holland)$"];
+        out geom;`
+    );
 
 // --- GeoJSON conversie helpers ---
 function isClosed(coords) {
@@ -94,11 +90,15 @@ function joinWays(ways) {
     }
     return result;
 }
-
 function overpassToGeoJSON(overpassJson) {
     const features = [];
     overpassJson.elements.forEach(el => {
-        if (el.type === "relation" && el.members && el.tags && allowedProvinces.includes(el.tags["kad:provincie"])) {
+        if (
+            el.type === "relation" &&
+            el.members &&
+            el.tags &&
+            allowedProvinces.includes(el.tags["kad:provincie"])
+        ) {
             const outers = [];
             const inners = [];
             el.members.forEach(member => {
@@ -144,6 +144,7 @@ function overpassToGeoJSON(overpassJson) {
         features: features
     };
 }
+
 // --- Vectorlaag (gemeenten) ---
 let gemeenteLayer = null;
 let featuresByName = {};
