@@ -8,12 +8,16 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div id="map"></div>
-    <form class="search-box" id="searchForm" autocomplete="off">
-        <label for="searchInput">Gemeente:</label>
-        <input type="text" id="searchInput" placeholder="Typ een gemeentenaam..." />
-        <button type="submit" id="searchBtn" disabled>Zoek</button>
-    </form>
+    <div id="container">
+        <div id="map"></div>
+        <div id="sidebar">
+            <form class="search-box" id="searchForm" autocomplete="off">
+                <input type="text" id="searchInput" placeholder="Zoek gemeente..." />
+                <button type="submit" id="searchBtn" disabled>Zoek</button>
+            </form>
+            <div id="gemeenteTable"></div>
+        </div>
+    </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/d3@7"></script>
     <script src="main.js"></script>

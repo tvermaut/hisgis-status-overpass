@@ -125,6 +125,8 @@ function overpassToGeoJSON(overpassJson) {
 // --- Laag en zoeken ---
 let gemeenteLayer = null;
 let featuresByName = {};
+let featuresById = {};
+let featuresByProv = {};
 
 async function loadAndShow() {
     try {
@@ -149,13 +151,20 @@ async function loadAndShow() {
             }
         }).addTo(map);
         featuresByName = {};
+        featuresById = {};
+        featuresByProv = {};
         geojson.features.forEach(f => {
             if (f.properties && f.properties.name) {
                 featuresByName[f.properties.name.toLowerCase()] = f;
             }
+            featuresById[f.id] = f;
+            const prov = (f.properties && f.properties["kad:provincie"]) || "Onbekend";
+            if (!featuresByProv[prov]) featuresByProv[prov] = [];
+            featuresByProv[prov].push(f);
         });
         document.getElementById('searchBtn').disabled = false;
         map.fitBounds(gemeenteLayer.getBounds());
+        renderTable();
         drawLabels();
     } catch (err) {
         alert('Fout bij laden of verwerken van Overpass-data: ' + err);
@@ -172,17 +181,7 @@ document.getElementById('searchForm').addEventListener('submit', function(e) {
         alert('Gemeente niet gevonden: ' + input);
         return;
     }
-    gemeenteLayer.eachLayer(function(layer) {
-        if (
-            layer.feature &&
-            layer.feature.properties &&
-            layer.feature.properties.name &&
-            layer.feature.properties.name.toLowerCase() === input
-        ) {
-            map.fitBounds(layer.getBounds(), {maxZoom: 13});
-            layer.openPopup();
-        }
-    });
+    panToFeature(featuresByName[input]);
 });
 document.getElementById('searchInput').addEventListener('input', function() {
     document.getElementById('searchBtn').disabled = !this.value.trim();
@@ -254,8 +253,7 @@ function drawLabels() {
         const centroid = polygonCentroid(biggest);
         const point = map.latLngToLayerPoint([centroid[1], centroid[0]]);
         const lines = breakLines(name, 12);
-        // Bepaal maximale lettergrootte zodat label in de gemeente past:
-        // Benadering: neem bbox van grootste ring, kies kleinste zijde als basis
+        // Factor 5 groter:
         let minSide = Infinity;
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const c of biggest) {
@@ -265,8 +263,7 @@ function drawLabels() {
             if (c[1] > maxY) maxY = c[1];
         }
         minSide = Math.min(maxX - minX, maxY - minY);
-        // Houd 80% van bbox over, deel door aantal regels
-        const fontSizeMeters = Math.max(100, 0.8 * minSide / lines.length);
+        const fontSizeMeters = Math.max(100, 5 * 0.8 * minSide / lines.length);
         const mpp = metersPerPixel(centroid[1], map.getZoom());
         const fontSizePx = fontSizeMeters / mpp;
 
@@ -285,3 +282,48 @@ function drawLabels() {
     });
 }
 map.on('zoomend moveend', drawLabels);
+
+// --- Tabel met provincie-groepen ---
+function renderTable() {
+    const tableDiv = document.getElementById('gemeenteTable');
+    tableDiv.innerHTML = '';
+    const sortedProvs = Object.keys(featuresByProv).sort();
+    sortedProvs.forEach(prov => {
+        const provDiv = document.createElement('div');
+        provDiv.className = 'province-group';
+        const header = document.createElement('div');
+        header.className = 'province-header';
+        header.textContent = prov;
+        provDiv.appendChild(header);
+        const table = document.createElement('table');
+        table.className = 'gemeente-table';
+        featuresByProv[prov].sort((a, b) => (a.properties.name || '').localeCompare(b.properties.name || '')).forEach(feature => {
+            const tr = document.createElement('tr');
+            tr.className = 'gemeente-row';
+            tr.setAttribute('data-id', feature.id);
+            const td = document.createElement('td');
+            td.className = 'gemeente-cell';
+            td.textContent = feature.properties.name || '';
+            tr.appendChild(td);
+            tr.addEventListener('click', () => {
+                panToFeature(feature);
+                document.querySelectorAll('.gemeente-row.selected').forEach(row => row.classList.remove('selected'));
+                tr.classList.add('selected');
+            });
+            table.appendChild(tr);
+        });
+        provDiv.appendChild(table);
+        tableDiv.appendChild(provDiv);
+    });
+}
+
+// --- Pan/zoom naar gemeente ---
+function panToFeature(feature) {
+    if (!feature) return;
+    gemeenteLayer.eachLayer(function(layer) {
+        if (layer.feature && layer.feature.id === feature.id) {
+            map.fitBounds(layer.getBounds(), {maxZoom: 13});
+            layer.openPopup();
+        }
+    });
+}

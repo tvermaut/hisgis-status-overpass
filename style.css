@@ -1,18 +1,35 @@
 html, body { height: 100%; margin: 0; }
-#map { width: 100vw; height: 100vh; }
+#container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+#map {
+    flex: 1 1 0%;
+    height: 100vh;
+    min-width: 0;
+}
+#sidebar {
+    width: 350px;
+    background: #f7f7f7;
+    border-left: 1px solid #ddd;
+    overflow-y: auto;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
 .search-box {
-    position: absolute;
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000;
-    background: rgba(255,255,255,0.95);
-    padding: 6px 10px 6px 10px;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    font-family: sans-serif;
+    display: flex;
+    gap: 6px;
+    padding: 16px 16px 6px 16px;
+    background: #fff;
+    border-bottom: 1px solid #e5e5e5;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 .search-box input[type="text"] {
+    flex: 1 1 0%;
     padding: 4px 8px;
     font-size: 1em;
     border: 1px solid #aaa;
@@ -26,14 +43,48 @@ html, body { height: 100%; margin: 0; }
     background: #e31a1c;
     color: #fff;
     cursor: pointer;
-    margin-left: 4px;
 }
 .search-box button:disabled {
     background: #ccc;
     cursor: not-allowed;
 }
-.search-box label {
-    margin-right: 8px;
+#gemeenteTable {
+    flex: 1 1 0%;
+    overflow-y: auto;
+    padding: 0 0 24px 0;
+}
+.province-group {
+    margin: 0 0 16px 0;
+    border-bottom: 1px solid #eee;
+}
+.province-header {
+    background: #f0f0f8;
+    font-weight: bold;
+    font-size: 1.1em;
+    padding: 10px 16px 6px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    letter-spacing: 0.02em;
+}
+.gemeente-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.gemeente-row {
+    cursor: pointer;
+    background: #fff;
+    transition: background 0.1s;
+}
+.gemeente-row:hover, .gemeente-row.selected {
+    background: #ffeaea;
+}
+.gemeente-cell {
+    padding: 8px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 1em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .gemeente-label text {
     pointer-events: none;
