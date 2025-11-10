@@ -19,7 +19,7 @@ const map = L.map('map', {
     zoomSnap: 1,
     zoomDelta: 1,
     wheelPxPerZoomLevel: 60,
-    layers: [minuutplansTiles] // standaard deze tegel-laag
+    layers: [osmTiles] // standaard deze tegel-laag
 });
 
 // --- Provincie filter ---
