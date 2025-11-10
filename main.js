@@ -6,8 +6,8 @@ const minuutplansTiles = L.tileLayer('https://tileserver.huc.knaw.nl/{z}/{x}/{y}
     maxNativeZoom: 22,   // alleen z=13 is echt aanwezig, lager/hoger wordt 
     minNativeZoom: 13
 });
-const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap'
+const osmTiles = L.tileLayer('https://geoservices.hisgis.nl/wmts/osm1832/{z}/{x}/{y}.png', {
+    attribution: '<a href="https://hisgis.nl/">HisGIS</a>'
 });
 
 // --- Map met minuutplans als standaard ---
@@ -29,7 +29,7 @@ const allowedProvinces = [
 ];
 
 // --- Overpass-query: filter direct op kad:provincie ---
-const overpassUrl = 'https://overpass.huc.knaw.nl/api/interpreter?data=' +
+const overpassUrl = 'https://overpass.huc.knaw.nl/cache/api/interpreter?data=' +
     encodeURIComponent(
         `[out:json][timeout:60];
         relation
